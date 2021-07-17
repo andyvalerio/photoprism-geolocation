@@ -1,0 +1,25 @@
+{
+    "permissions": ["scripting", "storage"],
+    "background": {
+        "service_worker": "worker.js"
+    },
+    "name": "PhotoPrism Location",
+    "manifest_version": 3,
+    "host_permissions": ["http:\/\/*\/*", "https:\/\/*\/*"],
+    "description": "Make it easier to select the place where your photos were taken",
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "content_scripts": [
+        {
+          "matches": ["http://*/browse*"],
+          "css": ["extension.css"],
+          "js": ["contentScript.js"]
+        }
+    ],
+    "options_ui": {
+        "page": "options.html",
+        "open_in_tab": false
+    },
+    "version": "1.0"
+}
