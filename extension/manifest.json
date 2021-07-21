@@ -12,7 +12,7 @@
     },
     "content_scripts": [
         {
-          "matches": ["http://*/browse*"],
+          "matches": ["*://*/browse*"],
           "css": ["extension.css"],
           "js": ["contentScript.js"]
         }
