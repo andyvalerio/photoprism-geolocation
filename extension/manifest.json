@@ -1,5 +1,5 @@
 {
-    "permissions": ["scripting", "storage"],
+    "permissions": ["storage"],
     "background": {
         "service_worker": "worker.js"
     },
