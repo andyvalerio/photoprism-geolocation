@@ -1,3 +1,10 @@
-chrome.runtime.onInstalled.addListener(function() {
-  console.log('I am a service worker, you can change me in the file worker.js. A service worker can print stuff in the console, cool! Discover what else a service worker can do at this page: https://developer.chrome.com/docs/extensions/mv3/background_pages/')
+chrome.runtime.onInstalled.addListener(async () => {
+  for (const cs of chrome.runtime.getManifest().content_scripts) {
+    for (const tab of await chrome.tabs.query({url: cs.matches})) {
+      chrome.scripting.executeScript({
+        target: {tabId: tab.id},
+        files: cs.js,
+      });
+    }
+  }
 });
