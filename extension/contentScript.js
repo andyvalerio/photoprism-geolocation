@@ -1,5 +1,5 @@
 
-const targetNode = document.getElementById('app');
+const targetNode = document.getElementById('photoprism');
 const config = { attributes: false, childList: true, subtree: true };
 
 // Callback function to execute when mutations are observed
