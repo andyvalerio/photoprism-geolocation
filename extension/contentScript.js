@@ -40,17 +40,23 @@ const callback = function(mutationsList, observer) {
 };
 
 
-setTimeout(()=>{
-
-    // This node doesn't immediately exists so it's better to wait 1 second or so
+function observeAppElement() {
+    // Check if the element with id 'app' exists
     const targetNode = document.getElementById('app');
-    // Create an observer instance linked to the callback function
-    const observer = new MutationObserver(callback);
-    console.log(targetNode);
-    // Start observing the target node for configured mutations
-    observer.observe(targetNode, config);
     
-}, 1000);
+    if (targetNode) {
+        // If the element exists, create the observer and start observing
+        const observer = new MutationObserver(callback);
+        observer.observe(targetNode, config);
+    } else {
+        // If the element doesn't exist yet, wait and try again
+        setTimeout(observeAppElement, 100); // Check again after 100 milliseconds
+    }
+}
+
+// Call the function to start observing the 'app' element
+observeAppElement();
+
 
 // Receive message with new coordinates
 top.window.addEventListener("message", function(message) {
