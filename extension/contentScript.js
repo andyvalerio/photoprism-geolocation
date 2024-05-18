@@ -253,14 +253,18 @@ function updatePhoto(photo, latitude, longitude) {
         // Get the current host URL
         var hostUrl = window.location.origin;
 
-        // Get the session ID from localStorage
-        var sessionId = localStorage.getItem('session_id');
+        // Get the session ID and auth token from localStorage (in different ways to support multiple versions of PhotoPrism)
+        var session_id = localStorage.getItem('session_id');
+        var sessionId = localStorage.getItem('sessionId');
+        var sessionIDToUse = sessionId !== null ? sessionId : session_id;
+        var authToken = localStorage.getItem('authToken');
 
         fetch(hostUrl + "/api/v1/photos/" + photo, {
             "headers": {
                 "accept": "application/json, text/plain, */*",
                 "content-type": "application/json",
-                "x-session-id": sessionId, // Use the session ID retrieved from localStorage
+                "x-session-id": sessionIDToUse, // Use the session ID retrieved from localStorage
+                "x-auth-token": authToken,
             },
             "body": JSON.stringify({"Lat": parseFloat(latitude), "Lng": parseFloat(longitude), "PlaceSrc": "manual"}),
             "method": "PUT",
