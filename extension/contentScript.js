@@ -54,16 +54,40 @@ top.window.addEventListener("message", function(message) {
     setTimeout(function(){
         // This is necessary because Vue.js responds by default to the input event rather than change event
         var event = new Event('input');
-        var leftBox = document.getElementsByClassName('input-latitude')[0];
-        leftBox.firstChild.firstChild.firstChild.childNodes[1].value = message.data.coordinates.lat;
-        leftBox.firstChild.firstChild.firstChild.childNodes[1].dispatchEvent(event);
-        var rightBox = document.getElementsByClassName('input-longitude')[0];
-        rightBox.firstChild.firstChild.firstChild.childNodes[1].value = message.data.coordinates.lon;
-        rightBox.firstChild.firstChild.firstChild.childNodes[1].dispatchEvent(event);
+        if (message.data.coordinates !== undefined)
+        {
+            if (message.data.coordinates.lat !== undefined)
+            {
+                var leftBox = document.getElementsByClassName('input-latitude')[0];
+                if (leftBox !== undefined)
+                {
+                    leftBox.firstChild.firstChild.firstChild.childNodes[1].value = message.data.coordinates.lat;
+                    leftBox.firstChild.firstChild.firstChild.childNodes[1].dispatchEvent(event);
+                }
+            }
+            if (message.data.coordinates.lon !== undefined)
+            {
+                var rightBox = document.getElementsByClassName('input-longitude')[0];
+                if (rightBox !== undefined)
+                {
+                    rightBox.firstChild.firstChild.firstChild.childNodes[1].value = message.data.coordinates.lon;
+                    rightBox.firstChild.firstChild.firstChild.childNodes[1].dispatchEvent(event);
+                }
+            }
+        }
     }, 10);
     // Save the coordinates to local storage in case it is a bulk update (to be used when the user triggers the bulk update)
-    localStorage.setItem('latitude', message.data.coordinates.lat)
-    localStorage.setItem('longitude', message.data.coordinates.lon)
+    if (message.data.coordinates !== undefined)
+    {
+        if (message.data.coordinates.lat !== undefined)
+        {
+            localStorage.setItem('latitude', message.data.coordinates.lat);
+        }
+        if (message.data.coordinates.lon !== undefined)
+        {
+            localStorage.setItem('longitude', message.data.coordinates.lon);
+        }
+    }
 });
 
 
@@ -242,7 +266,13 @@ function updatePhoto(photo, latitude, longitude) {
     return new Promise((resolve, reject) => {
         // Get the current host URL
         var hostUrl = window.location.origin;
-
+        // Handle proxied hosted PhotoPrism if needed.
+        var UrlPath = window.location.pathname.match("(\/.*)\/library");
+        if (UrlPath != null)
+        {
+            hostUrl += UrlPath[1];
+        }
+        
         // Get the session ID and auth token from localStorage (in different ways to support multiple versions of PhotoPrism)
         var session_id = localStorage.getItem('session_id');
         var sessionId = localStorage.getItem('sessionId');
