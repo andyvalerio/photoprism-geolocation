@@ -324,7 +324,6 @@ function updatePhoto(photo, latitude, longitude)
                     else 
                     {
                         const errMessage = 'Error updating photo ' + photo + '. Status: ' + response.status;
-                        console.error(errMessage);
                         // HTTP 500 errors are assumed to be due to a backend database locking issue
                         // which will become available from PhotoPrism after a bug is fixed.
                         // See https://github.com/photoprism/photoprism/issues/4504
@@ -333,17 +332,21 @@ function updatePhoto(photo, latitude, longitude)
                             if (attempts < 1)
                             {
                                 // Display an alert with the error message including the photo ID
+                                console.error(errMessage);
                                 alert(errMessage);
                                 reject(new Error(errMessage)); // Reject the promise
                             }
                             else
                             {
-                                const delay = Math.floor(Math.random() * 1000);
-                                wait(delay).then(()=> retriableFetch(url, properties, attempts - 1));
-                            }                        
+                                console.log(errMessage);
+                                // Pass the error to the next .then for retry attempt.
+                                return {"Error": "true", "Status": response.status, "Message": errMessage}
+                            }
                         }
                         else
                         {
+                            // Display an alert with the error message including the photo ID
+                            console.error(errMessage);
                             alert(errMessage);
                             reject(new Error(errMessage)); // Reject the promise
                         }
@@ -354,27 +357,48 @@ function updatePhoto(photo, latitude, longitude)
             (
                 (data) => 
                 {
-                    // Before #4504 is fixed in PhotoPrism, it will return a json set of data without
-                    // the updates to Latitude and Longitude.  This will check for that, and retry.
-                    console.log('Photo ',photo,' Lat (', latitude, '): ', data.Lat, ' Lon (', longitude ,'): ', data.Lng);
-                    if (LatOrLongOk(latitude, data.Lat) && LatOrLongOk(longitude, data.Lng))
+                    if (data !== undefined)
                     {
-                        resolve();
-                    }
-                    else
-                    {
-                        if (attempts < 1)
+                        if (data.Error == "true")
                         {
-                            const errMessage = 'Error updating photo ' + photo + ': To many retries on GPS location Photo Lat (' + latitude + '): ' + data.Lat + ' Lon (' +  longitude +'): ' + data.Lng
-                            alert(errMessage);
-                            console.error(errMessage);
-                            reject(new Error(errMessage)); // Reject the promise
-                        }
-                        else
-                        {
+                            // We can only get here if there was a http 500 error, and we haven't run out of attempts.
                             const delay = Math.floor(Math.random() * 1000);
                             wait(delay).then(()=> retriableFetch(url, properties, attempts - 1));
                         }
+                        else
+                        {
+                            // Before #4504 is fixed in PhotoPrism, it may return a json set of data without
+                            // the updates to Latitude and Longitude when there has been a database deadlock or timeout.
+                            // This will check for that, and retry.
+                            if (LatOrLongOk(latitude, data.Lat) && LatOrLongOk(longitude, data.Lng))
+                            {
+                                // Data is all ok, so mark this one as complete.
+                                resolve();
+                            }
+                            else
+                            {
+                                if (attempts < 1)
+                                {
+                                    // To many retry attempts...
+                                    const errMessage = 'Error updating photo ' + photo + ': To many retries on GPS location Photo Lat (' + latitude + '): ' + data.Lat + ' Lon (' +  longitude +'): ' + data.Lng
+                                    alert(errMessage);
+                                    console.error(errMessage);
+                                    reject(new Error(errMessage)); // Reject the promise
+                                }
+                                else
+                                {
+                                    // We haven't run out of retries, so try again.
+                                    console.log('Photo ',photo,' Lat (', latitude, '): ', data.Lat, ' Lon (', longitude ,'): ', data.Lng, ' has issues.  Retrying...');
+                                    const delay = Math.floor(Math.random() * 1000);
+                                    wait(delay).then(()=> retriableFetch(url, properties, attempts - 1));
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Update has failed and we have been rejected.
+                        // Nothing to do here.
                     }
                 }
             )
