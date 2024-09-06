@@ -238,49 +238,132 @@ function removeProgressBar() {
     }
 }
 
-function updatePhoto(photo, latitude, longitude) {
-    return new Promise((resolve, reject) => {
-        // Get the current host URL
-        var hostUrl = window.location.origin;
+// Check if 2 GPS numbers are close enough.  Required to deal with rounding issues between javascript and go.
+// For some reason -33.972222 becomes -33.97222 in PhotoPrism.
+// Others are more reasonable with a difference of 0.000001.
+function LatOrLongOk(first, second)
+{
+    return Math.abs(first - second) < 0.000050;  
+}
 
-        // Get the session ID and auth token from localStorage (in different ways to support multiple versions of PhotoPrism)
-        var session_id = localStorage.getItem('session_id');
-        var sessionId = localStorage.getItem('sessionId');
-        var sessionIDToUse = sessionId !== null ? sessionId : session_id;
-        var authToken = localStorage.getItem('authToken');
 
-        fetch(hostUrl + "/api/v1/photos/" + photo, {
-            "headers": {
-                "accept": "application/json, text/plain, */*",
-                "content-type": "application/json",
-                "x-session-id": sessionIDToUse, // Use the session ID retrieved from localStorage
-                "x-auth-token": authToken,
-            },
-            "body": JSON.stringify({"Lat": parseFloat(latitude), "Lng": parseFloat(longitude), "PlaceSrc": "manual"}),
-            "method": "PUT",
-            "mode": "cors",
-            "credentials": "include"
-        })
-        .then(function(response) {
-            // Check if the request was successful
-            if (response.ok) {
-                // Print the status of the response
-                console.log('Fetch successful. Status:', response.status);
-                resolve(); // Resolve the promise
-            } else {
-                // Display an alert with the error message including the photo ID
-                alert('Error updating photo ' + photo + '. Status: ' + response.status);
-                console.error('Error updating photo ' + photo + '. Status: ' + response.status);
-                reject(new Error('Error updating photo ' + photo + '. Status: ' + response.status)); // Reject the promise
+// Create a delay of up to a second if we need to retry.
+const wait = (delay) => (new Promise((resolve) => setTimeout(resolve, delay)));
+
+function updatePhoto(photo, latitude, longitude) 
+{
+    return new Promise
+    (
+        (resolve, reject) => 
+        {
+            // Get the current host URL
+            var hostUrl = window.location.origin;
+            var UrlPath = window.location.pathname.match("(\/.*)\/library");
+            if (UrlPath != null)
+            {
+                hostUrl += UrlPath[1];
             }
-        })
-        .catch(function(error) {
-            // Display an alert with the error message including the photo ID
-            alert('Error updating photo ' + photo + ': ' + error.message);
-            console.error('Error updating photo ' + photo + ': ' + error);
-            reject(error); // Reject the promise
-        });
-    });
+            
+            // Get the session ID and auth token from localStorage (in different ways to support multiple versions of PhotoPrism)
+            var session_id = localStorage.getItem('session_id');
+            var sessionId = localStorage.getItem('sessionId');
+            var sessionIDToUse = sessionId !== null ? sessionId : session_id;
+            var authToken = localStorage.getItem('authToken');
+            
+            var fetchURL = hostUrl + "/api/v1/photos/" + photo;
+            var fetchProperties = {
+                    "headers": {
+                        "accept": "application/json, text/plain, */*",
+                        "content-type": "application/json",
+                        "x-session-id": sessionIDToUse, // Use the session ID retrieved from localStorage
+                        "x-auth-token": authToken,
+                    },
+                    "body": JSON.stringify({"Lat": parseFloat(latitude), "Lng": parseFloat(longitude), "PlaceSrc": "manual"}),
+                    "method": "PUT",
+                    "mode": "cors",
+                    "credentials": "include"
+                };
+            
+            const retriableFetch = (url, properties, attempts = 5) => fetch(url, properties)
+            .then
+            (
+                (response) => 
+                {
+                    if (response.ok)
+                    {
+                        console.log('Fetch successful for ', response.url,' Status:', response.status);
+                        return response.json()
+                    }
+                    else 
+                    {
+                        const errMessage = 'Error updating photo ' + photo + '. Status: ' + response.status;
+                        console.error(errMessage);
+                        // HTTP 500 errors are assumed to be due to a backend database locking issue
+                        // which will become available from PhotoPrism after a bug is fixed.
+                        // See https://github.com/photoprism/photoprism/issues/4504
+                        if (response.status == 500)
+                        {
+                            if (attempts < 1)
+                            {
+                                // Display an alert with the error message including the photo ID
+                                alert(errMessage);
+                                reject(new Error(errMessage)); // Reject the promise
+                            }
+                            else
+                            {
+                                const delay = Math.floor(Math.random() * 1000);
+                                wait(delay).then(()=> retriableFetch(url, properties, attempts - 1));
+                            }                        
+                        }
+                        else
+                        {
+                            alert(errMessage);
+                            reject(new Error(errMessage)); // Reject the promise
+                        }
+                    }
+                }
+            )
+            .then
+            (
+                (data) => 
+                {
+                    // Before #4504 is fixed in PhotoPrism, it will return a json set of data without
+                    // the updates to Latitude and Longitude.  This will check for that, and retry.
+                    console.log('Photo ',photo,' Lat (', latitude, '): ', data.Lat, ' Lon (', longitude ,'): ', data.Lng);
+                    if (LatOrLongOk(latitude, data.Lat) && LatOrLongOk(longitude, data.Lng))
+                    {
+                        resolve();
+                    }
+                    else
+                    {
+                        if (attempts < 1)
+                        {
+                            const errMessage = 'Error updating photo ' + photo + ': To many retries on GPS location Photo Lat (' + latitude + '): ' + data.Lat + ' Lon (' +  longitude +'): ' + data.Lng
+                            alert(errMessage);
+                            console.error(errMessage);
+                            reject(new Error(errMessage)); // Reject the promise
+                        }
+                        else
+                        {
+                            const delay = Math.floor(Math.random() * 1000);
+                            wait(delay).then(()=> retriableFetch(url, properties, attempts - 1));
+                        }
+                    }
+                }
+            )
+            .catch
+            (
+                (error) =>
+                {
+                    // Display an alert with the error message including the photo ID
+                    alert('Error updating photo ' + photo + ': ' + error.message);
+                    console.error('Error updating photo ' + photo + ': ' + error);
+                    reject(error); // Reject the promise
+                }
+            );
+            retriableFetch(fetchURL, fetchProperties, 5);
+        }
+    );
 }
 
 // Run the function every half second
