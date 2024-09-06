@@ -284,6 +284,7 @@ function updatePhoto(photo, latitude, longitude)
         {
             // Get the current host URL
             var hostUrl = window.location.origin;
+            // Handle proxied hosted PhotoPrism if required.
             var UrlPath = window.location.pathname.match("(\/.*)\/library");
             if (UrlPath != null)
             {
