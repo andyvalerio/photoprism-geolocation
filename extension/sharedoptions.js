@@ -2,7 +2,7 @@
 function save_options() {
     var size = document.getElementById('size').value;
     // Validate the input.
-    validSize = [100, 200, 400];
+    validSize = [0, 100, 200, 400];
     if(+size === parseInt(size)){
         if(validSize.includes(parseInt(size))) {
             chrome.storage.sync.set({

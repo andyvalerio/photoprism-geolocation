@@ -30,20 +30,22 @@ const callback = function(mutationsList, observer) {
         ppLocationMapSize: 200,
     }, function(items) {
         mapSize = items.ppLocationMapSize;
-        for(const mutation of mutationsList) {
-            if (mutation.type === 'childList') {
-                if (mutation.addedNodes[0] !== undefined && mutation.addedNodes[0].className === 'p-tab p-tab-photo-details') {
-                    setTimeout(function(){
-                        var countryElement = document.getElementsByClassName('input-country')[0];
-                        var iframe = document.createElement('iframe');
-                        iframe.src = mapUrl + '?initLatitude=' + 
-                        document.getElementsByClassName('input-latitude')[0].firstChild.firstChild.firstChild.childNodes[1].value
-                        + '&initLongitude=' + document.getElementsByClassName('input-longitude')[0].firstChild.firstChild.firstChild.childNodes[1].value;
-                        iframe.style = 'display: block; width: 100%; height: 100%; border: none; min-height: ' + mapSize + 'px;';
-                        countryElement.parentNode.parentNode.insertBefore(iframe, countryElement.parentNode);
-                    }, 1);
-                    // Disconnect the observer
-                    //observer.disconnect();
+        if (mapSize != 0) {
+            for(const mutation of mutationsList) {
+                if (mutation.type === 'childList') {
+                    if (mutation.addedNodes[0] !== undefined && mutation.addedNodes[0].className === 'p-tab p-tab-photo-details') {
+                        setTimeout(function(){
+                            var countryElement = document.getElementsByClassName('input-country')[0];
+                            var iframe = document.createElement('iframe');
+                            iframe.src = mapUrl + '?initLatitude=' + 
+                            document.getElementsByClassName('input-latitude')[0].firstChild.firstChild.firstChild.childNodes[1].value
+                            + '&initLongitude=' + document.getElementsByClassName('input-longitude')[0].firstChild.firstChild.firstChild.childNodes[1].value;
+                            iframe.style = 'display: block; width: 100%; height: 100%; border: none; min-height: ' + mapSize + 'px;';
+                            countryElement.parentNode.parentNode.insertBefore(iframe, countryElement.parentNode);
+                        }, 1);
+                        // Disconnect the observer
+                        //observer.disconnect();
+                    }
                 }
             }
         }
