@@ -1,3 +1,24 @@
+// Store variables to allow revocation to turn intervals off.
+var intervalId = 0;
+var amIRevoked = false;
+
+// The listener for messages from the background processes
+const listenerScriptLoaded = (message, sender, sendResponse) => {
+    // Prevent this script from being loaded again on tab refresh/update.
+    if (message.action === "IsScriptLoaded") {
+        sendResponse(true)
+    }
+    else if (message.action === "Revoked") {
+        if (intervalId !== 0){
+            clearInterval(intervalId);
+        }
+        console.log("We received a revoke instruction!");
+        amIRevoked = true;
+    }
+}
+  
+chrome.runtime.onMessage.addListener(listenerScriptLoaded)
+
 
 const config = { attributes: false, childList: true, subtree: true };
 
@@ -6,7 +27,7 @@ const callback = function(mutationsList, observer) {
     var mapSize = '200';
     var mapUrl = 'https://www.valerio.nu/maps';
     chrome.storage.sync.get({
-        ppLocationMapSize: 'default',
+        ppLocationMapSize: 200,
     }, function(items) {
         mapSize = items.ppLocationMapSize;
         for(const mutation of mutationsList) {
@@ -39,8 +60,10 @@ function observeAppElement() {
         const observer = new MutationObserver(callback);
         observer.observe(targetNode, config);
     } else {
-        // If the element doesn't exist yet, wait and try again
-        setTimeout(observeAppElement, 100); // Check again after 100 milliseconds
+        if (!amIRevoked){
+            // If the element doesn't exist yet, wait and try again
+            setTimeout(observeAppElement, 100); // Check again after 100 milliseconds
+        }
     }
 }
 
@@ -417,5 +440,8 @@ function updatePhoto(photo, latitude, longitude)
     );
 }
 
-// Run the function every half second
-setInterval(addLocationButton, 500);
+if (!amIRevoked)
+{
+    // Run the function every half second
+    intervalId = setInterval(addLocationButton, 500);
+}

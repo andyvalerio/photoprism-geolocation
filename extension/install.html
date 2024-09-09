@@ -6,10 +6,13 @@
         border: 1px solid black;
         }
     </style>
-    <title>PhotoPrism Location - Options</title>
+    <title>PhotoPrism Location - Install</title>
 </head>
 <body>
 <img src="./icons/i-128.png" id="geolocationImage"><br>
+By default there is no access to PhotoPrism Apps (except the demo) from this extension.<br>
+Left Click on the extenstion icon to access the Popup and Grant Access when you 1st browse your PhotoPrism site.<br>
+<br>
 Set size of the map:
 <select id="size">
  <option value="100">Small</option>
@@ -20,15 +23,19 @@ Set size of the map:
 <div id="status"></div>
 <button id="save">Save options</button>
 <br/>
+<br/>
 Access allowed to these sites:<br/>
 
 <div id="sitelist" data-records="0"></div>
 <br/>
+<br/>
+Tick a site from the list above, then click Revoke Access to remove it.<br/>
 <button id="revoke" disabled="true">Revoke Access</button><br/>
-
+<br/>
 If you revoke a site, then you will have to close and reopen that site to remove the extension's javascript.
 
 <script src="sharedoptions.js"></script>
 <script src="options.js"></script>
+
 </body>
 </html>

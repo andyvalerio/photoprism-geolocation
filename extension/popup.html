@@ -1,8 +1,35 @@
+<!DOCTYPE html>
 <html>
-  <head>
-    <title>New Chrome Extension</title>
-  </head>
-  <body>
-      <iframe src="options.html"></iframe>
-  </body>
+<head>
+  <style>
+    table, th, td {
+      border: 1px solid black;
+    }
+  </style>
+  <title>PhotoPrism Location - Popup</title>
+</head>
+<body>
+<img src="./icons/i-128.png" id="geolocationImage"><br/>
+Set size of the map:
+<select id="size">
+ <option value="100">Small</option>
+ <option value="200">Default</option>
+ <option value="400">Large</option>
+</select>
+
+<div id="status"></div>
+<button id="save">Save options</button>
+<br/>
+Allow access to this site:
+<div id="sitename"></div>
+<br/>
+<button id="grant">Grant Access</button>
+<button id="revoke">Revoke Access</button>
+<br/>
+<div id="message"></div><br/>
+<div id="sitelist"></div><br/>
+
+<script src="sharedoptions.js"></script>
+<script src="popup.js"></script>
+</body>
 </html>

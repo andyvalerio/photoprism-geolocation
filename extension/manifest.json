@@ -1,25 +1,34 @@
 {
+    "manifest_version": 3,
+    "name": "Geolocation Plugin for PhotoPrism",
+    "description": "Makes it easy to select the location where your photos were taken",
+    "version": "2.0.1",
+    "icons":{"16":"icons/i-16.png", "32":"icons/i-32.png", "64":"icons/i-64.png", "128":"icons/i-128.png"},
+
     "permissions": ["storage", "scripting", "activeTab"],
+    "host_permissions" : ["https://demo.photoprism.app/*"],
+    "optional_host_permissions": ["<all_urls>"],
+
     "background": {
+        "scripts": ["worker.js"],
         "service_worker": "worker.js"
     },
-    "name": "Geolocation Plugin for PhotoPrism",
-    "manifest_version": 3,
-    "host_permissions": ["http:\/\/*\/*", "https:\/\/*\/*"],
-    "description": "Makes it easy to select the location where your photos were taken",
     "action": {
         "default_popup": "popup.html"
     },
     "content_scripts": [
         {
-          "matches": ["*://*/library/browse", "*://*/*/library/browse"],
-          "css": ["extension.css"],
+          "matches": ["https://demo.photoprism.app/*"],
           "js": ["contentScript.js"]
         }
     ],
     "options_ui": {
         "page": "options.html",
-        "open_in_tab": false
+        "open_in_tab": true
     },
-    "version": "1.9"
+    "browser_specific_settings":{
+        "gecko": {
+            "id": "{edb79849-9fe0-48fe-afcf-46f4eabf6339}"
+        }
+    }
 }
