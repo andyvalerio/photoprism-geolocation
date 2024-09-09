@@ -32,6 +32,8 @@ async function buildTableHTML(){
 async function grant_permissions() {
     var url = (new URL((await theCurrentTab()).url)).origin  + "/*";
     if (isValidUrl(url)) {
+        // chrome.permissions.request may change the currentWindow, so we need to save it!
+        tabToRefresh = (await chrome.tabs.query({active: true, currentWindow: true}))[0];
         await chrome.permissions.request({
             origins: [url]
         }, (granted) => {
@@ -40,9 +42,7 @@ async function grant_permissions() {
                 document.getElementById('grant').disabled = true;
                 document.getElementById('revoke').disabled = false;
                 console.log("Permission for " + url + " has been granted.")
-                chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-                    chrome.tabs.reload(tabs[0].id);
-                });
+                chrome.tabs.reload(tabToRefresh.id);
                 window.close();
             } else {
                 document.getElementById('grant').disabled = false;
