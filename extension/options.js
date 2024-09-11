@@ -16,12 +16,22 @@ function restore_options() {
 // For any site that has been ticked, revoke it's access.
 function revoke_permissions(){
     var records = document.getElementById('sitelist').getAttribute("data-records");
-    var counter = 1;
-    for (let counter = 1; counter < records; counter++) {
+    var counter = 0;
+    for (let counter = 0; counter < records; counter++) {
         let elementName = 'url'+counter;
         if (document.getElementById(elementName).checked) {
             let url = document.getElementById(elementName).getAttribute("value");
             if (isValidUrl(url)) {
+                chrome.scripting.getRegisteredContentScripts({ids:[url]})
+                .then ((scripts) => {
+                    if (scripts.length == 1) {
+                        chrome.scripting.unregisterContentScripts({ids:[url]})
+                        .catch((error) => {
+                            console.error(error);
+                            alert(error);
+                        })
+                    }
+                })
                 chrome.permissions.remove({
                     origins: [url]
                 }, (removed) => {
@@ -44,16 +54,13 @@ async function buildCheckboxList(){
     let counter = 0
     for (const url of (await chrome.permissions.getAll()).origins) {
         checkboxHTML += '<tr><td><input type="checkbox" id="url' + counter + '" name="url' + counter + '" value="'+url+'"'
-        if (url == "https://demo.photoprism.app/library/browse" || url == "https://demo.photoprism.app/*"){  // chrome vs firefox values of the url.
-            checkboxHTML += ' disabled="true"'
-        }
         checkboxHTML += '><label for="url'+counter+'">'+url+'</label></td></tr>'
         counter++;
     }
     checkboxHTML += '</table>'
     document.getElementById('sitelist').innerHTML = checkboxHTML;
     document.getElementById('sitelist').setAttribute("data-records", counter.toString());
-    if (counter > 1) {
+    if (counter > 0) {
         document.getElementById('revoke').disabled = false;
     }
 }

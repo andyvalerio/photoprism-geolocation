@@ -26,8 +26,8 @@ function save_options() {
 function isValidUrl(string) {
     try {
         var parsedURL = new URL(string);
-        if (parsedURL.host !== '') {
-            return true; 
+        if (parsedURL.host !== '' && (parsedURL.protocol == 'http:' || parsedURL.protocol == 'https:')) {
+            return true;
         }
         else {
             return false;

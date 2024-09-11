@@ -2,11 +2,10 @@
     "manifest_version": 3,
     "name": "Geolocation Plugin for PhotoPrism",
     "description": "Makes it easy to select the location where your photos were taken",
-    "version": "2.0.1",
+    "version": "2.0.2",
     "icons":{"16":"icons/i-16.png", "32":"icons/i-32.png", "64":"icons/i-64.png", "128":"icons/i-128.png"},
 
     "permissions": ["storage", "scripting", "activeTab"],
-    "host_permissions" : ["https://demo.photoprism.app/*"],
     "optional_host_permissions": ["<all_urls>"],
 
     "background": {
@@ -16,12 +15,6 @@
     "action": {
         "default_popup": "popup.html"
     },
-    "content_scripts": [
-        {
-          "matches": ["https://demo.photoprism.app/*"],
-          "js": ["contentScript.js"]
-        }
-    ],
     "options_ui": {
         "page": "options.html",
         "open_in_tab": true
