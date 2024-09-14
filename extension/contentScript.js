@@ -93,6 +93,13 @@ top.window.addEventListener("message", function(message) {
 });
 
 
+// Function to round a number to a precision.  Required to handle GPS coords being fixed by PhotoPrism.
+function roundTo(num, precision) {
+  const factor = Math.pow(10, precision)
+  return Math.round(num * factor) / factor
+}
+
+
 // Function to add the Location button if it's not already present
 function addLocationButton() {
     var buttonListContainer = document.querySelector('.v-speed-dial__list');
@@ -150,8 +157,8 @@ function addLocationButton() {
         saveButton.appendChild(saveButtonContent);
 
         saveButton.addEventListener('click', function() {
-            latitude = localStorage.getItem('latitude')
-            longitude = localStorage.getItem('longitude')
+            latitude = roundTo(parseFloat(localStorage.getItem('latitude')), 6)  // Round to 6 digits which is max that PhotoPrism handles
+            longitude = roundTo(parseFloat(localStorage.getItem('longitude')), 6)  // Round to 6 digits which is max that PhotoPrism handles
             console.log('Latitude:', latitude, 'Longitude:', longitude);
             photos = localStorage.getItem('photo_clipboard')
             console.log(photos)
@@ -416,6 +423,9 @@ function updatePhoto(photo, latitude, longitude)
         }
     );
 }
+
+
+
 
 // Run the function every half second
 setInterval(addLocationButton, 500);
