@@ -54,29 +54,31 @@ top.window.addEventListener("message", function(message) {
     setTimeout(function(){
         // This is necessary because Vue.js responds by default to the input event rather than change event
         var event = new Event('input');
+        // Validate that the coordinates and it's children are available, then set the values for latitude and longitude.
         if (message.data.coordinates !== undefined)
-        {
-            if (message.data.coordinates.lat !== undefined)
             {
-                var leftBox = document.getElementsByClassName('input-latitude')[0];
-                if (leftBox !== undefined)
+                if (message.data.coordinates.lat !== undefined)
                 {
-                    leftBox.firstChild.firstChild.firstChild.childNodes[1].value = message.data.coordinates.lat;
-                    leftBox.firstChild.firstChild.firstChild.childNodes[1].dispatchEvent(event);
+                    var leftBox = document.getElementsByClassName('input-latitude')[0];
+                    if (leftBox !== undefined)
+                    {
+                        leftBox.firstChild.firstChild.firstChild.childNodes[1].value = message.data.coordinates.lat;
+                        leftBox.firstChild.firstChild.firstChild.childNodes[1].dispatchEvent(event);
+                    }
+                }
+                if (message.data.coordinates.lon !== undefined)
+                {
+                    var rightBox = document.getElementsByClassName('input-longitude')[0];
+                    if (rightBox !== undefined)
+                    {
+                        rightBox.firstChild.firstChild.firstChild.childNodes[1].value = message.data.coordinates.lon;
+                        rightBox.firstChild.firstChild.firstChild.childNodes[1].dispatchEvent(event);
+                    }
                 }
             }
-            if (message.data.coordinates.lon !== undefined)
-            {
-                var rightBox = document.getElementsByClassName('input-longitude')[0];
-                if (rightBox !== undefined)
-                {
-                    rightBox.firstChild.firstChild.firstChild.childNodes[1].value = message.data.coordinates.lon;
-                    rightBox.firstChild.firstChild.firstChild.childNodes[1].dispatchEvent(event);
-                }
-            }
-        }
-    }, 10);
+        }, 10);
     // Save the coordinates to local storage in case it is a bulk update (to be used when the user triggers the bulk update)
+    // Make sure that the latitude and longitude are available
     if (message.data.coordinates !== undefined)
     {
         if (message.data.coordinates.lat !== undefined)
@@ -269,8 +271,6 @@ function removeProgressBar() {
     }
 }
 
-
-
 // Check if 2 GPS numbers are close enough.  Required to deal with rounding issues between javascript and go.
 // For some reason -33.972222 becomes -33.97222 in PhotoPrism.
 // Others are more reasonable with a difference of 0.000001.
@@ -291,6 +291,7 @@ function updatePhoto(photo, latitude, longitude)
         {
             // Get the current host URL
             var hostUrl = window.location.origin;
+            // Handle proxied hosted PhotoPrism if required.
             var UrlPath = window.location.pathname.match("(\/.*)\/library");
             if (UrlPath != null)
             {
@@ -329,10 +330,33 @@ function updatePhoto(photo, latitude, longitude)
                     }
                     else 
                     {
-                        // Display an alert with the error message including the photo ID
-                        alert('Error updating photo ' + photo + '. Status: ' + response.status);
-                        console.error('Error updating photo ' + photo + '. Status: ' + response.status);
-                        reject(new Error('Error updating photo ' + photo + '. Status: ' + response.status)); // Reject the promise
+                        const errMessage = 'Error updating photo ' + photo + '. Status: ' + response.status;
+                        // HTTP 500 errors are assumed to be due to a backend database locking issue
+                        // which will become available from PhotoPrism after a bug is fixed.
+                        // See https://github.com/photoprism/photoprism/issues/4504
+                        if (response.status == 500)
+                        {
+                            if (attempts < 1)
+                            {
+                                // Display an alert with the error message including the photo ID
+                                console.error(errMessage);
+                                alert(errMessage);
+                                reject(new Error(errMessage)); // Reject the promise
+                            }
+                            else
+                            {
+                                console.log(errMessage);
+                                // Pass the error to the next .then for retry attempt.
+                                return {"Error": "true", "Status": response.status, "Message": errMessage}
+                            }
+                        }
+                        else
+                        {
+                            // Display an alert with the error message including the photo ID
+                            console.error(errMessage);
+                            alert(errMessage);
+                            reject(new Error(errMessage)); // Reject the promise
+                        }
                     }
                 }
             )
@@ -340,25 +364,48 @@ function updatePhoto(photo, latitude, longitude)
             (
                 (data) => 
                 {
-                    console.log('Photo ',photo,' Lat (', latitude, '): ', data.Lat, ' Lon (', longitude ,'): ', data.Lng);
-                    if (LatOrLongOk(latitude, data.Lat) && LatOrLongOk(longitude, data.Lng))
+                    if (data !== undefined)
                     {
-                        resolve();
-                    }
-                    else
-                    {
-                        if (attempts < 1)
+                        if (data.Error == "true")
                         {
-                            const errMessage = 'Error updating photo ' + photo + ': To many retries on GPS location Photo Lat (' + latitude + '): ' + data.Lat + ' Lon (' +  longitude +'): ' + data.Lng
-                            alert(errMessage);
-                            console.error(errMessage);
-                            reject(errMessage); // Reject the promise
-                        }
-                        else
-                        {
+                            // We can only get here if there was a http 500 error, and we haven't run out of attempts.
                             const delay = Math.floor(Math.random() * 1000);
                             wait(delay).then(()=> retriableFetch(url, properties, attempts - 1));
                         }
+                        else
+                        {
+                            // Before #4504 is fixed in PhotoPrism, it may return a json set of data without
+                            // the updates to Latitude and Longitude when there has been a database deadlock or timeout.
+                            // This will check for that, and retry.
+                            if (LatOrLongOk(latitude, data.Lat) && LatOrLongOk(longitude, data.Lng))
+                            {
+                                // Data is all ok, so mark this one as complete.
+                                resolve();
+                            }
+                            else
+                            {
+                                if (attempts < 1)
+                                {
+                                    // To many retry attempts...
+                                    const errMessage = 'Error updating photo ' + photo + ': To many retries on GPS location Photo Lat (' + latitude + '): ' + data.Lat + ' Lon (' +  longitude +'): ' + data.Lng
+                                    alert(errMessage);
+                                    console.error(errMessage);
+                                    reject(new Error(errMessage)); // Reject the promise
+                                }
+                                else
+                                {
+                                    // We haven't run out of retries, so try again.
+                                    console.log('Photo ',photo,' Lat (', latitude, '): ', data.Lat, ' Lon (', longitude ,'): ', data.Lng, ' has issues.  Retrying...');
+                                    const delay = Math.floor(Math.random() * 1000);
+                                    wait(delay).then(()=> retriableFetch(url, properties, attempts - 1));
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Update has failed and we have been rejected.
+                        // Nothing to do here.
                     }
                 }
             )
