@@ -54,17 +54,48 @@ top.window.addEventListener("message", function(message) {
     setTimeout(function(){
         // This is necessary because Vue.js responds by default to the input event rather than change event
         var event = new Event('input');
-        var leftBox = document.getElementsByClassName('input-latitude')[0];
-        leftBox.firstChild.firstChild.firstChild.childNodes[1].value = message.data.coordinates.lat;
-        leftBox.firstChild.firstChild.firstChild.childNodes[1].dispatchEvent(event);
-        var rightBox = document.getElementsByClassName('input-longitude')[0];
-        rightBox.firstChild.firstChild.firstChild.childNodes[1].value = message.data.coordinates.lon;
-        rightBox.firstChild.firstChild.firstChild.childNodes[1].dispatchEvent(event);
+        if (message.data.coordinates !== undefined)
+        {
+            if (message.data.coordinates.lat !== undefined)
+            {
+                var leftBox = document.getElementsByClassName('input-latitude')[0];
+                if (leftBox !== undefined)
+                {
+                    leftBox.firstChild.firstChild.firstChild.childNodes[1].value = message.data.coordinates.lat;
+                    leftBox.firstChild.firstChild.firstChild.childNodes[1].dispatchEvent(event);
+                }
+            }
+            if (message.data.coordinates.lon !== undefined)
+            {
+                var rightBox = document.getElementsByClassName('input-longitude')[0];
+                if (rightBox !== undefined)
+                {
+                    rightBox.firstChild.firstChild.firstChild.childNodes[1].value = message.data.coordinates.lon;
+                    rightBox.firstChild.firstChild.firstChild.childNodes[1].dispatchEvent(event);
+                }
+            }
+        }
     }, 10);
     // Save the coordinates to local storage in case it is a bulk update (to be used when the user triggers the bulk update)
-    localStorage.setItem('latitude', message.data.coordinates.lat)
-    localStorage.setItem('longitude', message.data.coordinates.lon)
+    if (message.data.coordinates !== undefined)
+    {
+        if (message.data.coordinates.lat !== undefined)
+        {
+            localStorage.setItem('latitude', message.data.coordinates.lat);
+        }
+        if (message.data.coordinates.lon !== undefined)
+        {
+            localStorage.setItem('longitude', message.data.coordinates.lon);
+        }
+    }
 });
+
+
+// Function to round a number to a precision.  Required to handle GPS coords being fixed by PhotoPrism.
+function roundTo(num, precision) {
+  const factor = Math.pow(10, precision)
+  return Math.round(num * factor) / factor
+}
 
 
 // Function to add the Location button if it's not already present
@@ -124,8 +155,8 @@ function addLocationButton() {
         saveButton.appendChild(saveButtonContent);
 
         saveButton.addEventListener('click', function() {
-            latitude = localStorage.getItem('latitude')
-            longitude = localStorage.getItem('longitude')
+            latitude = roundTo(parseFloat(localStorage.getItem('latitude')), 6)  // Round to 6 digits which is max that PhotoPrism handles
+            longitude = roundTo(parseFloat(localStorage.getItem('longitude')), 6)  // Round to 6 digits which is max that PhotoPrism handles
             console.log('Latitude:', latitude, 'Longitude:', longitude);
             photos = localStorage.getItem('photo_clipboard')
             console.log(photos)
@@ -238,50 +269,116 @@ function removeProgressBar() {
     }
 }
 
-function updatePhoto(photo, latitude, longitude) {
-    return new Promise((resolve, reject) => {
-        // Get the current host URL
-        var hostUrl = window.location.origin;
 
-        // Get the session ID and auth token from localStorage (in different ways to support multiple versions of PhotoPrism)
-        var session_id = localStorage.getItem('session_id');
-        var sessionId = localStorage.getItem('sessionId');
-        var sessionIDToUse = sessionId !== null ? sessionId : session_id;
-        var authToken = localStorage.getItem('authToken');
 
-        fetch(hostUrl + "/api/v1/photos/" + photo, {
-            "headers": {
-                "accept": "application/json, text/plain, */*",
-                "content-type": "application/json",
-                "x-session-id": sessionIDToUse, // Use the session ID retrieved from localStorage
-                "x-auth-token": authToken,
-            },
-            "body": JSON.stringify({"Lat": parseFloat(latitude), "Lng": parseFloat(longitude), "PlaceSrc": "manual"}),
-            "method": "PUT",
-            "mode": "cors",
-            "credentials": "include"
-        })
-        .then(function(response) {
-            // Check if the request was successful
-            if (response.ok) {
-                // Print the status of the response
-                console.log('Fetch successful. Status:', response.status);
-                resolve(); // Resolve the promise
-            } else {
-                // Display an alert with the error message including the photo ID
-                alert('Error updating photo ' + photo + '. Status: ' + response.status);
-                console.error('Error updating photo ' + photo + '. Status: ' + response.status);
-                reject(new Error('Error updating photo ' + photo + '. Status: ' + response.status)); // Reject the promise
-            }
-        })
-        .catch(function(error) {
-            // Display an alert with the error message including the photo ID
-            alert('Error updating photo ' + photo + ': ' + error.message);
-            console.error('Error updating photo ' + photo + ': ' + error);
-            reject(error); // Reject the promise
-        });
-    });
+// Check if 2 GPS numbers are close enough.  Required to deal with rounding issues between javascript and go.
+// For some reason -33.972222 becomes -33.97222 in PhotoPrism.
+// Others are more reasonable with a difference of 0.000001.
+function LatOrLongOk(first, second)
+{
+    return Math.abs(first - second) < 0.000050;  
 }
+
+
+// Create a delay of up to a second if we need to retry.
+const wait = (delay) => (new Promise((resolve) => setTimeout(resolve, delay)));
+
+function updatePhoto(photo, latitude, longitude) 
+{
+    return new Promise
+    (
+        (resolve, reject) => 
+        {
+            // Get the current host URL
+            var hostUrl = window.location.origin;
+            var UrlPath = window.location.pathname.match("(\/.*)\/library");
+            if (UrlPath != null)
+            {
+                hostUrl += UrlPath[1];
+            }
+            
+            // Get the session ID and auth token from localStorage (in different ways to support multiple versions of PhotoPrism)
+            var session_id = localStorage.getItem('session_id');
+            var sessionId = localStorage.getItem('sessionId');
+            var sessionIDToUse = sessionId !== null ? sessionId : session_id;
+            var authToken = localStorage.getItem('authToken');
+            
+            var fetchURL = hostUrl + "/api/v1/photos/" + photo;
+            var fetchProperties = {
+                    "headers": {
+                        "accept": "application/json, text/plain, */*",
+                        "content-type": "application/json",
+                        "x-session-id": sessionIDToUse, // Use the session ID retrieved from localStorage
+                        "x-auth-token": authToken,
+                    },
+                    "body": JSON.stringify({"Lat": parseFloat(latitude), "Lng": parseFloat(longitude), "PlaceSrc": "manual"}),
+                    "method": "PUT",
+                    "mode": "cors",
+                    "credentials": "include"
+                };
+            
+            const retriableFetch = (url, properties, attempts = 5) => fetch(url, properties)
+            .then
+            (
+                (response) => 
+                {
+                    if (response.ok)
+                    {
+                        console.log('Fetch successful for ', response.url,' Status:', response.status);
+                        return response.json()
+                    }
+                    else 
+                    {
+                        // Display an alert with the error message including the photo ID
+                        alert('Error updating photo ' + photo + '. Status: ' + response.status);
+                        console.error('Error updating photo ' + photo + '. Status: ' + response.status);
+                        reject(new Error('Error updating photo ' + photo + '. Status: ' + response.status)); // Reject the promise
+                    }
+                }
+            )
+            .then
+            (
+                (data) => 
+                {
+                    console.log('Photo ',photo,' Lat (', latitude, '): ', data.Lat, ' Lon (', longitude ,'): ', data.Lng);
+                    if (LatOrLongOk(latitude, data.Lat) && LatOrLongOk(longitude, data.Lng))
+                    {
+                        resolve();
+                    }
+                    else
+                    {
+                        if (attempts < 1)
+                        {
+                            const errMessage = 'Error updating photo ' + photo + ': To many retries on GPS location Photo Lat (' + latitude + '): ' + data.Lat + ' Lon (' +  longitude +'): ' + data.Lng
+                            alert(errMessage);
+                            console.error(errMessage);
+                            reject(errMessage); // Reject the promise
+                        }
+                        else
+                        {
+                            const delay = Math.floor(Math.random() * 1000);
+                            wait(delay).then(()=> retriableFetch(url, properties, attempts - 1));
+                        }
+                    }
+                }
+            )
+            .catch
+            (
+                (error) =>
+                {
+                    // Display an alert with the error message including the photo ID
+                    alert('Error updating photo ' + photo + ': ' + error.message);
+                    console.error('Error updating photo ' + photo + ': ' + error);
+                    reject(error); // Reject the promise
+                }
+            );
+            retriableFetch(fetchURL, fetchProperties, 5);
+        }
+    );
+}
+
+
+
 
 // Run the function every half second
 setInterval(addLocationButton, 500);
