@@ -1,9 +1,12 @@
 // Listener for when the extension is installed or updated.
 // reason can be used to decide what needs to be done.
 chrome.runtime.onInstalled.addListener(async ({ reason }) => {
+    if (reason !== 'install') {
+        return;
+    }
     // Show the install tab so the user knows they have to add their PhotoPrism server.
-    chrome.tabs.create({ url: "install.html" });
-});
+    chrome.tabs.create({ url: "install.html" });  
+})
 
 
 
