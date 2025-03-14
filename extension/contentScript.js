@@ -32,14 +32,15 @@ const callback = function(mutationsList, observer) {
         mapSize = items.ppLocationMapSize;
         if (mapSize != 0) {
             for(const mutation of mutationsList) {
-                if (mutation.type === 'childList') {
-                    if (mutation.addedNodes[0] !== undefined && mutation.addedNodes[0].className === 'p-tab p-tab-photo-details') {
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0 && mutation.addedNodes[0].nodeType === 1) {
+                    const targetElement = mutation.addedNodes[0].getElementsByClassName('p-tab-photo-details')[0];
+                    if (targetElement && targetElement.classList.contains('p-tab')) {
                         setTimeout(function(){
                             var countryElement = document.getElementsByClassName('input-country')[0];
                             var iframe = document.createElement('iframe');
                             iframe.src = mapUrl + '?initLatitude=' + 
-                            document.getElementsByClassName('input-latitude')[0].firstChild.firstChild.firstChild.childNodes[1].value
-                            + '&initLongitude=' + document.getElementsByClassName('input-longitude')[0].firstChild.firstChild.firstChild.childNodes[1].value;
+                            document.getElementsByClassName('input-latitude')[0].getElementsByClassName('v-field__input')[0].value
+                            + '&initLongitude=' + document.getElementsByClassName('input-longitude')[0].getElementsByClassName('v-field__input')[0].value;
                             iframe.style = 'display: block; width: 100%; height: 100%; border: none; min-height: ' + mapSize + 'px;';
                             countryElement.parentNode.parentNode.insertBefore(iframe, countryElement.parentNode);
                         }, 1);
@@ -55,8 +56,7 @@ const callback = function(mutationsList, observer) {
 
 function observeAppElement() {
     // Check if the element with id 'app' exists
-    const targetNode = document.getElementById('app');
-    
+    const targetNode = document.getElementsByClassName('v-overlay-container')[0];
     if (targetNode) {
         // If the element exists, create the observer and start observing
         const observer = new MutationObserver(callback);
@@ -87,8 +87,8 @@ top.window.addEventListener("message", function(message) {
                     var leftBox = document.getElementsByClassName('input-latitude')[0];
                     if (leftBox !== undefined)
                     {
-                        leftBox.firstChild.firstChild.firstChild.childNodes[1].value = message.data.coordinates.lat;
-                        leftBox.firstChild.firstChild.firstChild.childNodes[1].dispatchEvent(event);
+                        leftBox.getElementsByClassName('v-field__input')[0].value = message.data.coordinates.lat;
+                        leftBox.getElementsByClassName('v-field__input')[0].dispatchEvent(event);
                     }
                 }
                 if (message.data.coordinates.lon !== undefined)
@@ -96,8 +96,8 @@ top.window.addEventListener("message", function(message) {
                     var rightBox = document.getElementsByClassName('input-longitude')[0];
                     if (rightBox !== undefined)
                     {
-                        rightBox.firstChild.firstChild.firstChild.childNodes[1].value = message.data.coordinates.lon;
-                        rightBox.firstChild.firstChild.firstChild.childNodes[1].dispatchEvent(event);
+                        rightBox.getElementsByClassName('v-field__input')[0].value = message.data.coordinates.lon;
+                        rightBox.getElementsByClassName('v-field__input')[0].dispatchEvent(event);
                     }
                 }
             }
