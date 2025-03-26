@@ -1,3 +1,5 @@
+var isNewPhotoprismUi = null;
+
 // Store variables to allow revocation to turn intervals off.
 var intervalId = 0;
 var amIRevoked = false;
@@ -31,16 +33,18 @@ const callback = function(mutationsList, observer) {
     }, function(items) {
         mapSize = items.ppLocationMapSize;
         if (mapSize != 0) {
-            for(const mutation of mutationsList) {
+            for (const mutation of mutationsList) {
                 if (mutation.type === 'childList' && mutation.addedNodes.length > 0 && mutation.addedNodes[0].nodeType === 1) {
-                    const targetElement = mutation.addedNodes[0].getElementsByClassName('p-tab-photo-details')[0];
-                    if (targetElement && targetElement.classList.contains('p-tab')) {
+                    const isPrevUiTab = !isNewPhotoprismUi && mutation.addedNodes[0].className === 'p-tab p-tab-photo-details';
+                    const isNewUiTab = isNewPhotoprismUi && mutation.addedNodes[0].classList.contains('v-tabs-window') && !!mutation.addedNodes[0].getElementsByClassName('p-tab-photo-details')[0];
+
+                    if (isPrevUiTab || isNewUiTab) {
                         setTimeout(function(){
-                            var countryElement = document.getElementsByClassName('input-country')[0];
-                            var iframe = document.createElement('iframe');
-                            iframe.src = mapUrl + '?initLatitude=' + 
-                            document.getElementsByClassName('input-latitude')[0].getElementsByClassName('v-field__input')[0].value
-                            + '&initLongitude=' + document.getElementsByClassName('input-longitude')[0].getElementsByClassName('v-field__input')[0].value;
+                            const countryElement = document.getElementsByClassName('input-country')[0];
+                            const iframe = document.createElement('iframe');
+                            iframe.src = mapUrl
+                                + '?initLatitude=' + document.getElementsByClassName('input-latitude')[0].getElementsByTagName('input')[0].value
+                                + '&initLongitude=' + document.getElementsByClassName('input-longitude')[0].getElementsByTagName('input')[0].value;
                             iframe.style = 'display: block; width: 100%; height: 100%; border: none; min-height: ' + mapSize + 'px;';
                             countryElement.parentNode.parentNode.insertBefore(iframe, countryElement.parentNode);
                         }, 1);
@@ -53,19 +57,42 @@ const callback = function(mutationsList, observer) {
     });
 };
 
-
-function observeAppElement() {
-    // Check if the element with id 'app' exists
-    const targetNode = document.getElementsByClassName('v-overlay-container')[0];
+function observeTargetNode(targetNode) {
     if (targetNode) {
         // If the element exists, create the observer and start observing
         const observer = new MutationObserver(callback);
         observer.observe(targetNode, config);
     } else {
-        if (!amIRevoked){
+        if (!amIRevoked) {
             // If the element doesn't exist yet, wait and try again
             setTimeout(observeAppElement, 100); // Check again after 100 milliseconds
         }
+    }
+}
+
+function observeAppElement() {
+    if (isNewPhotoprismUi === true) {
+        if (!document.getElementsByClassName('v-overlay-container')[0]) {
+            var container = document.createElement('div');
+            container.classList.add('v-overlay-container');
+            document.body.appendChild(container);
+        }
+
+        observeTargetNode(document.getElementsByClassName('v-overlay-container')[0]);
+    } else {
+        // Check if the element with id 'app' exists
+        const targetNode = document.getElementById('app');
+
+        if (targetNode) {
+            isNewPhotoprismUi = !targetNode.classList.contains('application');
+
+            if (isNewPhotoprismUi) {
+                setTimeout(observeAppElement, 100);
+                return;
+            }
+        }
+
+        observeTargetNode(targetNode);
     }
 }
 
@@ -87,8 +114,8 @@ top.window.addEventListener("message", function(message) {
                     var leftBox = document.getElementsByClassName('input-latitude')[0];
                     if (leftBox !== undefined)
                     {
-                        leftBox.getElementsByClassName('v-field__input')[0].value = message.data.coordinates.lat;
-                        leftBox.getElementsByClassName('v-field__input')[0].dispatchEvent(event);
+                        leftBox.getElementsByTagName('input')[0].value = message.data.coordinates.lat;
+                        leftBox.getElementsByTagName('input')[0].dispatchEvent(event);
                     }
                 }
                 if (message.data.coordinates.lon !== undefined)
@@ -96,8 +123,8 @@ top.window.addEventListener("message", function(message) {
                     var rightBox = document.getElementsByClassName('input-longitude')[0];
                     if (rightBox !== undefined)
                     {
-                        rightBox.getElementsByClassName('v-field__input')[0].value = message.data.coordinates.lon;
-                        rightBox.getElementsByClassName('v-field__input')[0].dispatchEvent(event);
+                        rightBox.getElementsByTagName('input')[0].value = message.data.coordinates.lon;
+                        rightBox.getElementsByTagName('input')[0].dispatchEvent(event);
                     }
                 }
             }
