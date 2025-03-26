@@ -151,9 +151,79 @@ function roundTo(num, precision) {
   return Math.round(num * factor) / factor
 }
 
+const multiSelectButtonsActions = {
+    _removeButton: (className) => {
+        const button = document.querySelector(`.${className}`);
+        button.parentNode.removeChild(button);
+    },
+    locationButton: () => {
+        // Create a new iframe element
+        var iframe = document.createElement('iframe');
+        iframe.src = 'https://www.valerio.nu/maps';
+        iframe.style.position = 'fixed';
+        iframe.style.top = '50%';
+        iframe.style.left = '50%';
+        iframe.style.transform = 'translate(-50%, -50%)';
+        iframe.style.width = '50%';
+        iframe.style.height = '50%';
+        iframe.style.border = '4px solid black';
+        iframe.style.zIndex = '9999';
+
+        // Append the iframe to the body
+        document.body.appendChild(iframe);
+    },
+    saveButton: () => {
+        latitude = roundTo(parseFloat(localStorage.getItem('latitude')), 6);  // Round to 6 digits which is max that PhotoPrism handles
+        longitude = roundTo(parseFloat(localStorage.getItem('longitude')), 6);  // Round to 6 digits which is max that PhotoPrism handles
+        console.log('Latitude:', latitude, 'Longitude:', longitude);
+        photos = localStorage.getItem(isNewPhotoprismUi ? 'clipboard.photos' : 'photo_clipboard');
+        console.log(photos);
+        photos = JSON.parse(photos);
+        // Remove the iframe from the document
+        var iframe = document.querySelector('iframe[src="https://www.valerio.nu/maps"]');
+        if (iframe) {
+            iframe.parentNode.removeChild(iframe);
+        }
+        // Remove the Save and Cancel buttons from the document
+        multiSelectButtonsActions._removeButton('extension-save-button');
+        multiSelectButtonsActions._removeButton('extension-cancel-button');
+        // Show a progress bar
+        createProgressBar();
+        numberOfPhotosSelected = photos.length;
+        progressStep = 100 / numberOfPhotosSelected;
+        progress = 0;
+        counter = 0;
+        photos.forEach(function(photo) {
+            updatePhoto(photo, latitude, longitude)
+            .then(() => {
+                console.log('Update successful');
+                counter = counter + 1;
+                progress = progress + progressStep;
+                updateProgress(progress);
+                if (counter === photos.length) {
+                    removeProgressBar();
+                }
+            })
+            .catch(error => {
+                console.error('Update failed:', error);
+                removeProgressBar();
+            });
+        });
+    },
+    cancelButton: () => {
+        // Remove the iframe from the document
+        var iframe = document.querySelector('iframe[src="https://www.valerio.nu/maps"]');
+        if (iframe) {
+            iframe.parentNode.removeChild(iframe);
+        }
+        // Remove the Save and Cancel buttons from the document
+        multiSelectButtonsActions._removeButton('extension-save-button');
+        multiSelectButtonsActions._removeButton('extension-cancel-button');
+    },
+};
 
 // Function to add the Location button if it's not already present
-function addLocationButton() {
+function addLocationButtonToPrevUi() {
     var buttonListContainer = document.querySelector('.v-speed-dial__list');
     // Check if the Location button is not already present
     if (buttonListContainer && document.querySelectorAll('.extension-location-button').length === 0 && document.querySelectorAll('.extension-save-button').length === 0) {
@@ -179,23 +249,7 @@ function addLocationButton() {
         buttonListContainer.appendChild(buttonWrapper);
 
         // Add event listener to the button
-        newButton.addEventListener('click', function() {
-            // Create a new iframe element
-            var iframe = document.createElement('iframe');
-            iframe.src = 'https://www.valerio.nu/maps';
-            iframe.style.position = 'fixed';
-            iframe.style.top = '50%';
-            iframe.style.left = '50%';
-            iframe.style.transform = 'translate(-50%, -50%)';
-            iframe.style.width = '50%';
-            iframe.style.height = '50%';
-            iframe.style.border = '4px solid black';
-            iframe.style.zIndex = '9999';
-
-            // Append the iframe to the body
-            document.body.appendChild(iframe);
-
-        });
+        newButton.addEventListener('click', multiSelectButtonsActions.locationButton);
 
     } else if (buttonListContainer && document.querySelector('iframe[src="https://www.valerio.nu/maps"]') && document.querySelectorAll('.extension-save-button').length === 0) {
         // If the iframe exists and is visible, add "Save" and "Cancel" buttons
@@ -207,66 +261,18 @@ function addLocationButton() {
         saveButtonContent.classList.add('v-btn__content');
         saveButtonContent.innerHTML = '<i aria-hidden="true" class="v-icon material-icons theme--dark">save</i>';
         saveButton.appendChild(saveButtonContent);
-
-        saveButton.addEventListener('click', function() {
-            latitude = roundTo(parseFloat(localStorage.getItem('latitude')), 6)  // Round to 6 digits which is max that PhotoPrism handles
-            longitude = roundTo(parseFloat(localStorage.getItem('longitude')), 6)  // Round to 6 digits which is max that PhotoPrism handles
-            console.log('Latitude:', latitude, 'Longitude:', longitude);
-            photos = localStorage.getItem('photo_clipboard')
-            console.log(photos)
-            photos = JSON.parse(photos);
-            // Remove the iframe from the document
-            var iframe = document.querySelector('iframe[src="https://www.valerio.nu/maps"]');
-            if (iframe) {
-                iframe.parentNode.removeChild(iframe);
-            }
-            // Remove the Save and Cancel buttons from the document
-            saveButton.parentNode.removeChild(saveButton);
-            cancelButton.parentNode.removeChild(cancelButton);
-            // Show a progress bar
-            createProgressBar()
-            numberOfPhotosSelected = photos.length
-            progressStep = 100 / numberOfPhotosSelected
-            progress = 0
-            counter = 0
-            photos.forEach(function(photo) {
-                updatePhoto(photo, latitude, longitude)
-                .then(() => {
-                    console.log('Update successful')
-                    counter = counter + 1
-                    progress = progress + progressStep
-                    updateProgress(progress)
-                    if (counter === photos.length) {
-                        removeProgressBar()
-                    }
-                })
-                .catch(error => {
-                    console.error('Update failed:', error)
-                    removeProgressBar()
-                });
-            })
-        })
+        saveButton.addEventListener('click', multiSelectButtonsActions.saveButton);
 
         var cancelButton = document.createElement('button');
         cancelButton.setAttribute('type', 'button');
-        cancelButton.classList.add('v-btn', 'v-btn--floating', 'v-btn--small', 'theme--dark');
+        cancelButton.classList.add('v-btn', 'v-btn--floating', 'v-btn--small', 'theme--dark', 'extension-cancel-button');
         cancelButton.setAttribute('title', 'Cancel location update');
         var cancelButtonContent = document.createElement('div');
         cancelButtonContent.classList.add('v-btn__content');
         cancelButtonContent.innerHTML = '<i aria-hidden="true" class="v-icon material-icons theme--dark">cancel</i>';
         cancelButton.appendChild(cancelButtonContent);
         // Add event listener to the Cancel button
-        cancelButton.addEventListener('click', function() {
-            // Remove the iframe from the document
-            var iframe = document.querySelector('iframe[src="https://www.valerio.nu/maps"]');
-            if (iframe) {
-                iframe.parentNode.removeChild(iframe);
-            }
-            // Remove the Save and Cancel buttons from the document
-            saveButton.parentNode.removeChild(saveButton);
-            cancelButton.parentNode.removeChild(cancelButton);
-        });
-        
+        cancelButton.addEventListener('click', multiSelectButtonsActions.cancelButton);
 
         // Remove existing buttons from the container div
         buttonListContainer.innerHTML = '';
@@ -275,6 +281,31 @@ function addLocationButton() {
         buttonListContainer.appendChild(cancelButton);
     }
 
+}
+
+const createNewUiButton = (className, iconName, title, clickCallback) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.title = title;
+    button.className = `v-btn v-btn--flat v-btn--icon v-btn--size-small bg-highlight v-btn--density-default v-btn--variant-elevated opacity-95 ma-1 ${className}`;
+    button.innerHTML = `<span class="v-btn__overlay"></span><span class="v-btn__underlay"></span><span class="v-btn__content"><i class="mdi mdi-${iconName} v-icon notranslate v-icon--size-default" aria-hidden="true"></i></span>`;
+    button.addEventListener('click', clickCallback);
+    return button;
+};
+
+function addLocationButtonToNewUi() {
+    const clipboard = document.querySelector('.clipboard-container');
+
+    if (clipboard && !clipboard.querySelector('.extension-location-button') && !clipboard.querySelector('.extension-save-button')) {
+        const locationButton = createNewUiButton('extension-location-button', 'map-marker', 'Location', multiSelectButtonsActions.locationButton);
+        clipboard.insertBefore(locationButton, clipboard.querySelector('button:first-child'));
+    } else if (document.querySelector('iframe[src="https://www.valerio.nu/maps"]') && !document.querySelector('.extension-save-button')) {
+        multiSelectButtonsActions._removeButton('extension-location-button');
+        const saveButton = createNewUiButton('extension-save-button', 'content-save-all-outline', 'Save location for selected photos', multiSelectButtonsActions.saveButton);
+        const cancelButton = createNewUiButton('extension-cancel-button', 'close-circle', 'Cancel location update', multiSelectButtonsActions.cancelButton);
+        clipboard.insertBefore(cancelButton, clipboard.querySelector('button:first-child'));
+        clipboard.insertBefore(saveButton, clipboard.querySelector('button:first-child'));
+    }
 }
 
 // Function to create and append a progress bar
@@ -476,8 +507,12 @@ function updatePhoto(photo, latitude, longitude)
     );
 }
 
-if (!amIRevoked)
-{
+if (!amIRevoked) {
     // Run the function every half second
-    intervalId = setInterval(addLocationButton, 500);
+    intervalId = setInterval(
+        isNewPhotoprismUi
+            ? addLocationButtonToNewUi
+            : addLocationButtonToPrevUi,
+        500
+    );
 }
